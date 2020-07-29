@@ -46,7 +46,7 @@ def evaluate_row_and_build_updates(source_row):
 print("Starting ...")
 
 # Initialize client. Uses the API token in the environment variable "SMARTSHEET_ACCESS_TOKEN"
-smart = smartsheet.Smartsheet()
+smart = smartsheet.Smartsheet("3dwmt4ylby5aomwb3irzud3u7w")
 # Make sure we don't miss any error
 smart.errors_as_exceptions(True)
 
