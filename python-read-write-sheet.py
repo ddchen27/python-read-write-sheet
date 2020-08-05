@@ -10,7 +10,6 @@ _dir = os.path.dirname(os.path.abspath(__file__))
 column_map = {}
 result_column_map = {}
 
-
 # Helper function to find cell in a row
 def get_cell_by_column_name(row, column_name):
     column_id = column_map[column_name]
@@ -20,14 +19,16 @@ def get_cell_by_column_name(row, column_name):
 # TODO: Replace the body of this function with your code
 # This *example* looks for rows with a "Status" column marked "Complete" and sets the "Remaining" column to zero
 # Return a new Row with updated cell values, else None to leave unchanged
-def evaluate_sheet(source_row, col1, col2, col3, col4, step_name):
+def evaluate_sheet(source_row, col1, col2, col3, col4, step_name, prev_program):
     # Find the cell and value we want to evaluate
     program_cell = get_cell_by_column_name(source_row, str(col1))
     program_value = program_cell.display_value
     checkbox = False
     if step_name == 'Sequencing':
         checkbox = get_cell_by_column_name(source_row, str(col4))
-    if program_value is not None and checkbox:
+    if (program_value is not None and 'REGN' in program_value) or (program_value is not None and checkbox):
+        if step_name == 'Sequencing' and program_value == prev_program:
+            return None, None
         start_date_cell = get_cell_by_column_name(source_row, str(col2))
         finish_date_cell = None
         if col3:
@@ -42,15 +43,18 @@ def evaluate_sheet(source_row, col1, col2, col3, col4, step_name):
             # Program Name
             new_cell_1 = smartsheet_client.models.Cell()
             new_cell_1.column_id = result_column_map["Program"]
-            i = program_value.find('REGN')
-            k = program_value.find(' ')
-            j = program_value.find('(')
-            if k != -1 and k > i:
-                new_cell_1.value = program_value[i:k]
-            elif j != -1 and j > i:
-                new_cell_1.value = program_value[i:j]
+            if not checkbox:
+                i = program_value.find('REGN')
+                k = program_value.find(' ')
+                j = program_value.find('(')
+                if k != -1 and k > i:
+                    new_cell_1.value = program_value[i:k]
+                elif j != -1 and j > i:
+                    new_cell_1.value = program_value[i:j]
+                else:
+                    new_cell_1.value = program_value[i:]
             else:
-                new_cell_1.value = program_value[i:]
+                new_cell_1.value = program_value
 
             # Step Name
             new_cell_2 = smartsheet_client.models.Cell()
@@ -114,14 +118,14 @@ def evaluate_sheet(source_row, col1, col2, col3, col4, step_name):
             new_row.cells.append(new_cell_1)
             new_row.cells.append(new_cell_2)
             new_row.cells.append(new_cell_3)
-            #new_row.cells.append(new_cell_4)
-            #new_row.cells.append(new_cell_5)
-            #new_row.cells.append(new_cell_6)
-            #new_row.cells.append(dur)
+            new_row.cells.append(new_cell_4)
+            new_row.cells.append(new_cell_5)
+            new_row.cells.append(new_cell_6)
+            new_row.cells.append(dur)
 
-            return new_row
+            return new_row, program_value
 
-    return None
+    return None, None
 
 
 def get_sheet(sheet_id, rowsToAdd, col1, col2, col3, col4, step_name):
@@ -133,10 +137,13 @@ def get_sheet(sheet_id, rowsToAdd, col1, col2, col3, col4, step_name):
     for c in sheet.columns:
         column_map[c.title] = c.id
 
+    prev_program = ''
     for row in sheet.rows:
-        rowToAdd = evaluate_sheet(row, col1, col2, col3, col4, step_name)
+        rowToAdd, prev_program = evaluate_sheet(row, col1, col2, col3, col4, step_name, prev_program)
         if rowToAdd is not None:
             rowsToAdd.append(rowToAdd)
+            # if step_name == 'Sequencing':
+            #     break
 
     return rowsToAdd
 
@@ -173,10 +180,10 @@ for column in result_sheet.columns:
 
 # Accumulate rows needing update here
 rowsToAdd = []
-#rowsToAdd = get_sheet(primary_screen_id, rowsToAdd, "Target", "Primary Screen Date", "", "", "Primary Screening")
-#rowsToAdd = get_sheet(subcloning_id, rowsToAdd, "Target / Hybridoma ID", "Sort Date", "Finish", "", "Subcloning")
+rowsToAdd = get_sheet(primary_screen_id, rowsToAdd, "Target", "Primary Screen Date", "", "", "Primary Screening")
+rowsToAdd = get_sheet(subcloning_id, rowsToAdd, "Target / Hybridoma ID", "Sort Date", "Finish", "", "Subcloning")
 rowsToAdd = get_sheet(sequencing_id, rowsToAdd, "Target", "NGS Run Date", "", "Anti-Drug", "Sequencing")
-#rowsToAdd = get_sheet(cho_cloning_id, rowsToAdd, "Target", "Assigned Date", "Cloning Complete", "AbPID/REGN#", "CHO Cloning")
+rowsToAdd = get_sheet(cho_cloning_id, rowsToAdd, "Target", "Assigned Date", "Cloning Complete", "AbPID/REGN#", "CHO Cloning")
 
 # Finally, write updated cells back to Smartsheet
 if rowsToAdd:
