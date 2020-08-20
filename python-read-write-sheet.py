@@ -27,14 +27,16 @@ def evaluate_sheet(source_row, col1, col2, col3, col4, step_name):
     checkbox = False
     type1 = ''
     type2 = ''
+    parent = False
     if step_name == 'Subcloning':
         type1 = get_cell_by_column_name(source_row, "Program").value
+        parent = get_cell_by_column_name(source_row, "# sorted").value
     if step_name == 'Sequencing':
         checkbox = get_cell_by_column_name(source_row, str(col4)).value
     if step_name == 'CHO Cloning':
         type2 = get_cell_by_column_name(source_row, "Reagent Type").value
     if program_value is not None:
-        if (step_name == "Subcloning" and "H" not in program_value) or checkbox or type2 == "Anti-Drug" \
+        if (type1 == "anti-drug" and parent) or checkbox or type2 == "Anti-Drug" \
                 or step_name == "Protein Biochemistry" or step_name == "Primary Screening" or step_name == "Production":
             start_date_cell = get_cell_by_column_name(source_row, str(col2))
             finish_date_cell = None
@@ -43,7 +45,8 @@ def evaluate_sheet(source_row, col1, col2, col3, col4, step_name):
             clone_cell = None
             if step_name == "CHO Cloning" or step_name == "Production":
                 clone_cell = get_cell_by_column_name(source_row, str(col4))
-            if start_date_cell.value:  # Skip if empty date cell
+            # Skip if empty date cell or older than 2 years ago
+            if start_date_cell.value and (datetime.now() - datetime.fromisoformat(start_date_cell.value)).days < 730:
                 print("Need to add row #" + str(source_row.row_number))
                 sdate = ''
                 fdate = ''
@@ -105,14 +108,14 @@ def evaluate_sheet(source_row, col1, col2, col3, col4, step_name):
                 # Status
                 new_cell_6 = smartsheet_client.models.Cell()
                 new_cell_6.column_id = result_column_map["Status"]
-                if new_cell_4.value != '' or step_name == 'Primary Screening':
+                if new_cell_4.value != '':
                     new_cell_6.value = "Completed"
                 else:
-                    new_cell_6.value = "In-Progress"
+                    new_cell_6.value = "Cloning In-Progress"
                 if step_name == 'CHO Cloning':
                     clone_status = get_cell_by_column_name(source_row, "Status").display_value
                     if clone_status == 'Cancelled':
-                        print("This cell was cancelled")
+                        print("This row was cancelled")
                         new_cell_6.value = "Cancelled"
                 if step_name == "Protein Biochemistry":
                     purification_status = get_cell_by_column_name(source_row, "Purification Status").display_value
@@ -199,6 +202,7 @@ def update_sheet(sheet_id):
 
 
 def update_helper(source_row, sub_list):
+    # Finish date
     new_cell = smartsheet.models.Cell()
     new_cell.column_id = result_column_map["End"]
     new_cell.value = ""
@@ -208,17 +212,24 @@ def update_helper(source_row, sub_list):
     dur.column_id = result_column_map["Duration (days)"]
     dur.value = ""
 
+    # Status
+    stat = smartsheet.models.Cell()
+    stat.column_id = result_column_map["Status"]
+    stat.value = "Primary Screening In-Progress"
+
     for sub in sub_list:
         primary_prog = source_row.get_column(result_column_map["Program"]).display_value
         if primary_prog == sub.get_column(result_column_map["Program"]).value:
             new_cell.value = sub.get_column(result_column_map["Start"]).value
             duration = (datetime.fromisoformat(sub.get_column(result_column_map["End"]).value) - datetime.fromisoformat(sub.get_column(result_column_map["Start"]).value)).days
             dur.value = duration
+            stat.value = "Completed"
 
     new_row = smartsheet_client.models.Row()
     new_row.id = source_row.id
     new_row.cells.append(new_cell)
     new_row.cells.append(dur)
+    new_row.cells.append(stat)
     return new_row
 
 
