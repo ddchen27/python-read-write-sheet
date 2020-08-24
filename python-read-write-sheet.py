@@ -37,7 +37,7 @@ def evaluate_sheet(source_row, col1, col2, col3, col4, step_name):
         type2 = get_cell_by_column_name(source_row, "Reagent Type").value
     if program_value is not None:
         if (type1 == "anti-drug" and parent) or checkbox or type2 == "Anti-Drug" \
-                or step_name == "Protein Biochemistry" or step_name == "Primary Screening" or step_name == "Production":
+                or step_name == "PCS Purification" or step_name == "Primary Screening" or step_name == "Production":
             start_date_cell = get_cell_by_column_name(source_row, str(col2))
             finish_date_cell = None
             if col3:
@@ -47,7 +47,7 @@ def evaluate_sheet(source_row, col1, col2, col3, col4, step_name):
                 clone_cell = get_cell_by_column_name(source_row, str(col4))
             # Skip if empty date cell or older than 2 years ago
             if start_date_cell.value and (datetime.now() - datetime.fromisoformat(start_date_cell.value)).days < 730:
-                print("Need to add row #" + str(source_row.row_number))
+                # print("Need to add row #" + str(source_row.row_number))
                 sdate = ''
                 fdate = ''
 
@@ -117,7 +117,7 @@ def evaluate_sheet(source_row, col1, col2, col3, col4, step_name):
                     if clone_status == 'Cancelled':
                         print("This row was cancelled")
                         new_cell_6.value = "Cancelled"
-                if step_name == "Protein Biochemistry":
+                if step_name == "PCS Purification":
                     purification_status = get_cell_by_column_name(source_row, "Purification Status").display_value
                     if purification_status != '':
                         new_cell_6.value = "Purification " + purification_status
@@ -140,10 +140,10 @@ def evaluate_sheet(source_row, col1, col2, col3, col4, step_name):
                 regn = smartsheet_client.models.Cell()
                 regn.column_id = result_column_map["REGN#"]
                 regn.value = ''
-                if step_name == 'CHO Cloning' or step_name == "Protein Biochemistry" or step_name == "Production":
-                    temp = get_cell_by_column_name(source_row, "REGN#").value
-                    if temp != '':
-                        regn.value = temp
+                if step_name == 'CHO Cloning' or step_name == "Production":
+                    regn.value = get_cell_by_column_name(source_row, "REGN#").value
+                if step_name == "PCS Purification":
+                    regn.value = get_cell_by_column_name(source_row, "REGN ID").value
 
                 # Build the row to update
                 new_row = smartsheet_client.models.Row()
@@ -179,24 +179,36 @@ def get_sheet(sheet_id, rowsToAdd, col1, col2, col3, col4, step_name):
     return rowsToAdd
 
 
-def update_sheet(sheet_id):
+def update_sheet(sheet_id, bol):
     # Load entire sheet
     sheet = smartsheet_client.Sheets.get_sheet(sheet_id)
     print("Loaded " + str(len(sheet.rows)) + " rows from sheet: " + sheet.name)
 
     update = []
-
     sub_list = []
-    for r in sheet.rows:
-        mile = r.get_column(result_column_map["Milestone"]).display_value
-        if mile == "Subcloning":
-            sub_list.append(r)
 
-    for r in sheet.rows:
-        mile = r.get_column(result_column_map["Milestone"]).display_value
-        if mile == "Primary Screening":
-            up  = update_helper(r, sub_list)
-            update.append(up)
+    if bol:
+        for r in sheet.rows:
+            mile = r.get_column(result_column_map["Milestone"]).display_value
+            if mile == "PCS Purification":
+                sub_list.append(r)
+        for r in sheet.rows:
+            mile = r.get_column(result_column_map["Milestone"]).display_value
+            if mile == "Production":
+                up = update_pcs_helper(r, sub_list)
+                update.append(up)
+
+    else:
+        for r in sheet.rows:
+            mile = r.get_column(result_column_map["Milestone"]).display_value
+            if mile == "Subcloning":
+                sub_list.append(r)
+
+        for r in sheet.rows:
+            mile = r.get_column(result_column_map["Milestone"]).display_value
+            if mile == "Primary Screening":
+                up = update_helper(r, sub_list)
+                update.append(up)
 
     return update
 
@@ -233,7 +245,26 @@ def update_helper(source_row, sub_list):
     return new_row
 
 
-def delete_excess(sheet_id):
+def update_pcs_helper(source_row, sub_list):
+    # Status
+    stat = smartsheet.models.Cell()
+    stat.column_id = result_column_map["Status"]
+    stat.value = "Production Sent to PCS"
+
+    for sub in sub_list:
+        row_regn = source_row.get_column(result_column_map["REGN#"]).value
+        if row_regn in sub.get_column(result_column_map["REGN#"]).value:
+            print(row_regn + " is purified already")
+            stat.value = "Production Completed"
+            break
+
+    new_row = smartsheet_client.models.Row()
+    new_row.id = source_row.id
+    new_row.cells.append(stat)
+    return new_row
+
+
+def delete_excess(sheet_id, bol):
     sheet = smartsheet_client.Sheets.get_sheet(sheet_id)
     print("Loaded " + str(len(sheet.rows)) + " rows from sheet: " + sheet.name)
     d_rows = []
@@ -245,10 +276,10 @@ def delete_excess(sheet_id):
     return d_rows
 
 
-def delete_helper(source_row, step_name, prev_program):
+def delete_helper(source_row, col_name, prev_program):
     flag = False
     next_program = source_row.get_column(result_column_map["Program"]).display_value
-    curr_milestone = source_row.get_column(result_column_map[step_name]).display_value
+    curr_milestone = source_row.get_column(result_column_map[col_name]).display_value
     if prev_program == next_program and curr_milestone == "Sequencing":
         flag = True
     return flag, next_program
@@ -303,7 +334,7 @@ rowsToAdd = get_sheet(primary_screen_id, rowsToAdd, "Target", "Primary Screen Da
 rowsToAdd = get_sheet(subcloning_id, rowsToAdd, "Target / Hybridoma ID", "Sort Date", "Finish", "", "Subcloning")
 rowsToAdd = get_sheet(sequencing_id, rowsToAdd, "Target", "NGS Run Date", "", "Anti-Drug", "Sequencing")
 rowsToAdd = get_sheet(cho_cloning_id, rowsToAdd, "Target", "Assigned Date", "Cloning Complete", "AbPID/REGN#", "CHO Cloning")
-rowsToAdd = get_sheet(pb_id, rowsToAdd, "Program", "Purification Start Date", "Purification Completion Date", "", "Protein Biochemistry")
+rowsToAdd = get_sheet(pb_id, rowsToAdd, "Program", "Purification Start Date", "Purification Completion Date", "", "PCS Purification")
 rowsToAdd = get_sheet(production_id, rowsToAdd, "Target", "Cloning Complete", "Production Complete", "AbPID/REGN#", "Production")
 # rowsToAdd = get_sheet(ad_tracker_id, rowsToAdd, "Target", "Cloning Complete", "Production Complete", "AbPID/REGN#", "ADG Request")
 
@@ -315,12 +346,17 @@ else:
     print("No rows to add!")
 
 # Delete excess sequencing rows
-d = delete_excess(result_id)
+d = delete_excess(result_id, False)
 clear_rows(result_id, d)
 
+# Update "Sent to PCS" row status that have completed Purification already
+rowsToUpdate = update_sheet(result_id, True)
+smartsheet_client.Sheets.update_rows(result_id, rowsToUpdate)
+print("Updated Sent to PCS status of " + str(len(rowsToUpdate)) + " rows that have Purification Completed")
+
 # Update Primary Screening end date:
-rowsToUpdate = update_sheet(result_id)
-updated_row = smartsheet_client.Sheets.update_rows(result_id, rowsToUpdate)
+rowsToUpdate = update_sheet(result_id, False)
+smartsheet_client.Sheets.update_rows(result_id, rowsToUpdate)
 print("Updated " + str(len(rowsToUpdate)) + " rows for Primary Screening dates")
 
 print("Done")
