@@ -17,8 +17,6 @@ def get_cell_by_column_name(row, column_name):
     return row.get_column(column_id)
 
 
-# TODO: Replace the body of this function with your code
-# This *example* looks for rows with a "Status" column marked "Complete" and sets the "Remaining" column to zero
 # Return a new Row with updated cell values, else None to leave unchanged
 def evaluate_sheet(source_row, col1, col2, col3, col4, step_name):
     # Find the cell and value we want to evaluate
