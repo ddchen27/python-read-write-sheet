@@ -119,8 +119,10 @@ def evaluate_sheet(source_row, col1, col2, col3, col4, step_name):
                         new_cell_6.value = "Cancelled"
                 if step_name == "PCS Purification":
                     purification_status = get_cell_by_column_name(source_row, "Purification Status").display_value
-                    if purification_status != '':
+                    if purification_status is not None:
                         new_cell_6.value = "Purification " + purification_status
+                    else:
+                        return None
                 if step_name == "Production":
                     prod_status = get_cell_by_column_name(source_row, "Production Status").display_value
                     if prod_status is not None:
