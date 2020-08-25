@@ -121,8 +121,10 @@ def evaluate_sheet(source_row, col1, col2, col3, col4, step_name):
                         new_cell_6.value = "Purification " + purification_status
                 if step_name == "Production":
                     prod_status = get_cell_by_column_name(source_row, "Production Status").display_value
-                    if prod_status != '':
+                    if prod_status is not None:
                         new_cell_6.value = "Production " + prod_status
+                    else:
+                        return None
 
                 # Duration
                 dur = smartsheet_client.models.Cell()
@@ -252,7 +254,7 @@ def update_pcs_helper(source_row, sub_list):
     for sub in sub_list:
         row_regn = source_row.get_column(result_column_map["REGN#"]).value
         if row_regn in sub.get_column(result_column_map["REGN#"]).value:
-            print(row_regn + " is purified already")
+            # print(row_regn + " is purified already")
             stat.value = "Production Completed"
             break
 
