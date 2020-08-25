@@ -300,8 +300,9 @@ def clear_rows(sheet_id, rows_to_delete):
 
 print("Starting ...")
 
-# Initialize client. Uses the API token in the environment variable "SMARTSHEET_ACCESS_TOKEN"
-smartsheet_client = smartsheet.Smartsheet("3dwmt4ylby5aomwb3irzud3u7w")
+# Initialize client. Uses the API token in the variable "SMARTSHEET_ACCESS_TOKEN"
+SMARTSHEET_ACCESS_TOKEN = "3dwmt4ylby5aomwb3irzud3u7w"
+smartsheet_client = smartsheet.Smartsheet(SMARTSHEET_ACCESS_TOKEN)
 # Make sure we don't miss any error
 smartsheet_client.errors_as_exceptions(True)
 
