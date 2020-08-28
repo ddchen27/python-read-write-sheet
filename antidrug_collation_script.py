@@ -126,7 +126,7 @@ def evaluate_sheet(source_row, col1, col2, col3, col4, step_name):
                     if prod_status is not None:
                         new_cell_6.value = "Production " + prod_status
                     else:
-                        return None
+                        new_cell_6.value = "Production " + "In-Progress"
 
                 # Duration
                 dur = smartsheet_client.models.Cell()
@@ -251,7 +251,7 @@ def update_pcs_helper(source_row, sub_list):
     # Status
     stat = smartsheet.models.Cell()
     stat.column_id = result_column_map["Status"]
-    stat.value = "Production Sent to PCS"
+    stat.value = source_row.get_column(result_column_map["Status"]).value
 
     for sub in sub_list:
         row_regn = source_row.get_column(result_column_map["REGN#"]).value
