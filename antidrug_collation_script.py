@@ -251,7 +251,8 @@ def update_pcs_helper(source_row, sub_list):
     # Status
     stat = smartsheet.models.Cell()
     stat.column_id = result_column_map["Status"]
-    stat.value = "Production Sent to PCS"
+    # stat.value = "Production Sent to PCS"
+    stat.value = source_row.get_column(result_column_map["Status"]).value
 
     for sub in sub_list:
         row_regn = source_row.get_column(result_column_map["REGN#"]).value
@@ -260,6 +261,7 @@ def update_pcs_helper(source_row, sub_list):
             stat.value = "Production Completed"
             break
 
+    print(stat.value)
     new_row = smartsheet_client.models.Row()
     new_row.id = source_row.id
     new_row.cells.append(stat)
