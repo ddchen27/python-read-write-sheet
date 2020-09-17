@@ -112,6 +112,8 @@ def evaluate_sheet(source_row, col1, col2, col3, col4, step_name):
                     new_cell_6.value = "Cloning In-Progress"
                 if step_name == 'CHO Cloning':
                     clone_status = get_cell_by_column_name(source_row, "Status").display_value
+                    if clone_status == 'In Progress':
+                        new_cell_6.value = "Cloning In-Progress"
                     if clone_status == 'Cancelled':
                         print("This row was cancelled")
                         new_cell_6.value = "Cancelled"
@@ -126,7 +128,7 @@ def evaluate_sheet(source_row, col1, col2, col3, col4, step_name):
                     if prod_status is not None:
                         new_cell_6.value = "Production " + prod_status
                     else:
-                        new_cell_6.value = "Production " + "In-Progress"
+                        new_cell_6.value = "Production In-Progress"
 
                 # Duration
                 dur = smartsheet_client.models.Cell()
@@ -260,7 +262,6 @@ def update_pcs_helper(source_row, sub_list):
             stat.value = "Production Completed"
             break
 
-    print(stat.value)
     new_row = smartsheet_client.models.Row()
     new_row.id = source_row.id
     new_row.cells.append(stat)
